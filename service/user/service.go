@@ -7,7 +7,7 @@ import (
 )
 
 type Repository interface {
-	isPhoneNumberUnique(phoneNumber string) (bool, error)
+	IsPhoneNumberUnique(phoneNumber string) (bool, error)
 	Register(u entity.User) (entity.User, error)
 }
 type Service struct {
@@ -28,7 +28,7 @@ func (s Service) Register(req RegisterRequest) (RegisterRespond, error) {
 		return RegisterRespond{}, errors.New("invalid phone")
 	}
 	// checkUniqueNess Phone number
-	if isUnique, err := s.repo.isPhoneNumberUnique(req.PhoneNumber); err != nil || !isUnique {
+	if isUnique, err := s.repo.IsPhoneNumberUnique(req.PhoneNumber); err != nil || !isUnique {
 		if err != nil {
 			return RegisterRespond{}, err
 		}
