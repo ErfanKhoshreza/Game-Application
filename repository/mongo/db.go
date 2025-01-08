@@ -3,6 +3,8 @@ package mongo
 import (
 	"context"
 	"fmt"
+	"log"
+	"sync"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -10,28 +12,53 @@ import (
 )
 
 type DB struct {
-	Client *mongo.Client
+	Client   *mongo.Client
+	Database *mongo.Database
 }
 
-func New() (*DB, error) {
-	clientOptions := options.Client().ApplyURI("localhost:27017")
+var (
+	instance *DB
+	once     sync.Once
+)
 
-	// Create a context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+// New initializes a MongoDB session and returns a singleton instance of DB
+func New(uri string, dbName string) (*DB, error) {
+	var err error
+	once.Do(func() {
+		clientOptions := options.Client().ApplyURI(uri)
 
-	// Connect to MongoDB
-	client, err := mongo.Connect(ctx, clientOptions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to MongoDB: %v", err)
+		// Create a context with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Connect to MongoDB
+		client, err := mongo.Connect(ctx, clientOptions)
+		if err != nil {
+			log.Fatalf("Failed to connect to MongoDB: %v", err)
+			return
+		}
+
+		// Ping the MongoDB server
+		err = client.Ping(ctx, nil)
+		if err != nil {
+			log.Fatalf("MongoDB ping failed: %v", err)
+			return
+		}
+
+		// Initialize the database instance
+		instance = &DB{
+			Client:   client,
+			Database: client.Database(dbName),
+		}
+		fmt.Println("Connected to MongoDB")
+	})
+	return instance, err
+}
+
+// GetDBInstance returns the singleton DB instance
+func GetDBInstance() *DB {
+	if instance == nil {
+		log.Fatal("Database not initialized. Call New() first.")
 	}
-
-	// Ping the MongoDB server
-	err = client.Ping(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("MongoDB ping failed: %v", err)
-	}
-	return &DB{
-		Client: client,
-	}, nil
+	return instance
 }
