@@ -43,7 +43,6 @@ func (s Service) Register(req RegisterRequest) (RegisterRespond, error) {
 	user := entity.User{
 		Name:        req.Name,
 		PhoneNumber: req.PhoneNumber,
-		ID:          0,
 	}
 	registeredUser, err := s.repo.Register(user)
 	if err != nil {
