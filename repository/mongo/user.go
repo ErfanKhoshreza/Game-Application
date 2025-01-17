@@ -15,7 +15,7 @@ func (d DB) IsPhoneNumberUnique(phoneNumber string) (bool, error) {
 	defer cancel()
 	user := d.Database.Collection("gameUser").FindOne(ctx, bson.M{"phoneNumber": phoneNumber})
 	if errors.Is(user.Err(), mongo.ErrNoDocuments) {
-		return false, nil
+		return true, nil
 	} else if user.Err() != nil {
 		return false, user.Err()
 	}
