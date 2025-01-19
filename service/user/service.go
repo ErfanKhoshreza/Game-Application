@@ -9,6 +9,7 @@ import (
 type Repository interface {
 	IsPhoneNumberUnique(phoneNumber string) (bool, error)
 	Register(u entity.User) (entity.User, error)
+	Login(LoginRequest) (entity.User, error)
 }
 type Service struct {
 	repo Repository
@@ -16,8 +17,16 @@ type Service struct {
 type RegisterRequest struct {
 	Name        string
 	PhoneNumber string
+	Password    string
+}
+type LoginRequest struct {
+	PhoneNumber string
+	Password    string
 }
 type RegisterRespond struct {
+	User entity.User
+}
+type LoginRespond struct {
 	User entity.User
 }
 
@@ -25,8 +34,7 @@ func New(repo Repository) Service {
 	return Service{repo: repo}
 }
 func (s Service) Register(req RegisterRequest) (RegisterRespond, error) {
-	//		Validate Phone Number
-	// TODO : We Should Verify Phone Number by Verfication Code
+
 	if phonenumber.IsValid(req.PhoneNumber) {
 		return RegisterRespond{}, errors.New("invalid phone")
 	}
@@ -46,6 +54,7 @@ func (s Service) Register(req RegisterRequest) (RegisterRespond, error) {
 	user := entity.User{
 		Name:        req.Name,
 		PhoneNumber: req.PhoneNumber,
+		Password:    req.Password,
 	}
 	registeredUser, err := s.repo.Register(user)
 	if err != nil {
@@ -53,4 +62,20 @@ func (s Service) Register(req RegisterRequest) (RegisterRespond, error) {
 	}
 	//	Retuurn creaTED User
 	return RegisterRespond{User: registeredUser}, nil
+}
+
+func (s Service) Login(req LoginRequest) (LoginRespond, error) {
+	if phonenumber.IsValid(req.PhoneNumber) {
+		return LoginRespond{}, errors.New("invalid phone")
+	}
+	params := LoginRequest{
+		Password:    req.Password,
+		PhoneNumber: req.PhoneNumber,
+	}
+	user, err := s.repo.Login(params)
+	if err != nil {
+		return LoginRespond{}, errors.New(err.Error())
+	}
+	return LoginRespond{User: user}, nil
+
 }
