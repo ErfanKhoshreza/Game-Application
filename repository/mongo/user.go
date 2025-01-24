@@ -48,19 +48,26 @@ func (d DB) Register(u entity.User) (entity.User, error) {
 	return user, nil
 }
 func (d DB) Login(param LoginParams) (entity.User, error) {
+	user, err := d.FindUserByPhoneNumber(param.PhoneNumber)
+	if err != nil {
+		return entity.User{}, err
+	}
+	if password.CheckPasswordHash(param.Password, user.Password) {
+		return user, nil
+	}
+	return entity.User{}, errors.New("password Did Not Match")
+}
+
+func (d DB) FindUserByPhoneNumber(phoneNumber string) (entity.User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	var user entity.User
-	err := d.Database.Collection("gameUser").FindOne(ctx, bson.M{"phoneNumber": param.PhoneNumber}).decode(&user)
+	err := d.Database.Collection("gameUser").FindOne(ctx, bson.M{"phoneNumber": phoneNumber}).Decode(&user)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return entity.User{}, errors.New("user Not Found")
 		}
 		return entity.User{}, err // If any other error occurs
 	}
-	if password.CheckPasswordHash(param.Password, user.Password) {
-		return user, nil
-	}
-	return entity.User{}, errors.New("password Did Not Match")
-
+	return user, nil
 }

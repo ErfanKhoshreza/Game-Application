@@ -3,13 +3,14 @@ package user
 import (
 	"Game-Application/entity"
 	"Game-Application/pkg/phonenumber"
+	"Game-Application/repository/mongo"
 	"errors"
 )
 
 type Repository interface {
 	IsPhoneNumberUnique(phoneNumber string) (bool, error)
 	Register(u entity.User) (entity.User, error)
-	Login(LoginRequest) (entity.User, error)
+	Login(params mongo.LoginParams) (entity.User, error)
 }
 type Service struct {
 	repo Repository
@@ -68,7 +69,7 @@ func (s Service) Login(req LoginRequest) (LoginRespond, error) {
 	if phonenumber.IsValid(req.PhoneNumber) {
 		return LoginRespond{}, errors.New("invalid phone")
 	}
-	params := LoginRequest{
+	params := mongo.LoginParams{
 		Password:    req.Password,
 		PhoneNumber: req.PhoneNumber,
 	}

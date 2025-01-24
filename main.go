@@ -1,6 +1,7 @@
 package main
 
 import (
+	"Game-Application/entity"
 	"Game-Application/repository/mongo"
 	"Game-Application/service/user"
 	"encoding/json"
@@ -52,4 +53,33 @@ func userRegisterHandler(w http.ResponseWriter, req *http.Request) {
 	}
 	_, _ = fmt.Fprintf(w, `{"success":true}`)
 	return
+}
+func userLoginHandler(w http.ResponseWriter, req *http.Request) (entity.User, error) {
+	if req.Method != http.MethodPost {
+		_, err := fmt.Fprintf(w, `{"error":"method not allowed"}`)
+		if err != nil {
+			panic("error writing to testWriter")
+		}
+		return entity.User{}, err
+	}
+	data, cErr := io.ReadAll(req.Body)
+	if cErr != nil {
+		_, _ = fmt.Fprintf(w, `{"error":"reading body error"}`)
+	}
+	var request user.LoginRequest
+	err := json.Unmarshal(data, &request)
+	if err != nil {
+		_, _ = fmt.Fprintf(w, `{"error":"unmarshal json error"}`)
+	}
+	repo, Merr := mongo.New("mongodb://localhost:27017", "game")
+	if Merr != nil {
+		_, _ = fmt.Fprintf(w, `{"error":"mongodb connect error"}`)
+		return entity.User{}, err
+	}
+	UserSvc := user.New(repo)
+	user, UErr := UserSvc.Login(request)
+	if UErr != nil {
+		_, _ = fmt.Fprintf(w, `{"error":"Lohin error"}`+UErr.Error())
+	}
+	return user.User, nil
 }
