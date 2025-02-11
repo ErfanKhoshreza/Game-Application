@@ -11,7 +11,7 @@ type Repository interface {
 	IsPhoneNumberUnique(phoneNumber string) (bool, error)
 	Register(u entity.User) (entity.User, error)
 	Login(params mongo.LoginParams) (entity.User, error)
-	GetUserByID(userID uint) (entity.User, error)
+	GetUserByID(userID string) (entity.User, error)
 }
 type Service struct {
 	repo Repository
@@ -32,7 +32,7 @@ type LoginRespond struct {
 	User entity.User
 }
 type ProfileRequest struct {
-	UserID uint
+	UserID string
 }
 type ProfileResponse struct {
 	Name string `json:"name"`
@@ -88,7 +88,7 @@ func (s Service) Login(req LoginRequest) (LoginRespond, error) {
 
 }
 
-func (s Service) getProfile(req ProfileRequest) (ProfileResponse, error) {
+func (s Service) GetProfile(req ProfileRequest) (ProfileResponse, error) {
 	// Get User By Id
 	user, err := s.repo.GetUserByID(req.UserID)
 	if err != nil {

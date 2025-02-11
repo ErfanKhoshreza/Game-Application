@@ -14,6 +14,7 @@ func main() {
 
 	mux.HandleFunc("/user/register", userRegisterHandler)
 	mux.HandleFunc("/user/login", userLoginHandler)
+	mux.HandleFunc("/user/profile", userProfileHandler)
 	err := http.ListenAndServe(":8080", mux)
 	if err != nil {
 		return
@@ -82,4 +83,35 @@ func userLoginHandler(w http.ResponseWriter, req *http.Request) {
 		_, _ = fmt.Fprintf(w, `{"error":"login error"}`+UErr.Error())
 	}
 	return
+}
+func userProfileHandler(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		_, err := fmt.Fprintf(w, `{"error":"method not allowed"}`)
+		if err != nil {
+			panic("error writing to testWriter")
+		}
+		return
+	}
+
+	data, cErr := io.ReadAll(req.Body)
+	if cErr != nil {
+		_, _ = fmt.Fprintf(w, `{"error":"reading body error"}`)
+	}
+	repo, Merr := mongo.New("mongodb://localhost:27017", "game")
+	if Merr != nil {
+		_, _ = fmt.Fprintf(w, `{"error":"mongodb connect error"}`)
+		return
+	}
+	var pReq user.ProfileRequest
+	err := json.Unmarshal(data, &pReq)
+	fmt.Println(pReq)
+	if err != nil {
+		_, _ = fmt.Fprintf(w, `{"error":"unmarshal json error"}`)
+	}
+	UserSvc := user.New(repo)
+	_, UErr := UserSvc.GetProfile(pReq)
+	if UErr != nil {
+		_, _ = fmt.Fprintf(w, `{"error":"%s"}`, UErr.Error())
+	}
+
 }

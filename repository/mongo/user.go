@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"time"
 )
@@ -57,11 +58,16 @@ func (d DB) Login(param LoginParams) (entity.User, error) {
 	}
 	return entity.User{}, errors.New("password Did Not Match")
 }
-func (d DB) GetUserByID(userID uint) (entity.User, error) {
+func (d DB) GetUserByID(userID string) (entity.User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	objID, Oerr := primitive.ObjectIDFromHex(userID)
+	if Oerr != nil {
+		// This means the userID was not a valid hex representation of an ObjectID
+		return entity.User{}, errors.New("invalid user id format")
+	}
 	var user entity.User
-	err := d.Database.Collection("gameUser").FindOne(ctx, bson.M{"_id": userID}).Decode(&user)
+	err := d.Database.Collection("gameUser").FindOne(ctx, bson.M{"_id": objID}).Decode(&user)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return entity.User{}, errors.New("user Not Found")
