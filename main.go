@@ -1,7 +1,6 @@
 package main
 
 import (
-	"Game-Application/entity"
 	"Game-Application/repository/mongo"
 	"Game-Application/service/user"
 	"encoding/json"
@@ -14,6 +13,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/user/register", userRegisterHandler)
+	mux.HandleFunc("/user/login", userLoginHandler)
 	err := http.ListenAndServe(":8080", mux)
 	if err != nil {
 		return
@@ -54,13 +54,13 @@ func userRegisterHandler(w http.ResponseWriter, req *http.Request) {
 	_, _ = fmt.Fprintf(w, `{"success":true}`)
 	return
 }
-func userLoginHandler(w http.ResponseWriter, req *http.Request) (entity.User, error) {
+func userLoginHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
 		_, err := fmt.Fprintf(w, `{"error":"method not allowed"}`)
 		if err != nil {
 			panic("error writing to testWriter")
 		}
-		return entity.User{}, err
+		return
 	}
 	data, cErr := io.ReadAll(req.Body)
 	if cErr != nil {
@@ -74,12 +74,12 @@ func userLoginHandler(w http.ResponseWriter, req *http.Request) (entity.User, er
 	repo, Merr := mongo.New("mongodb://localhost:27017", "game")
 	if Merr != nil {
 		_, _ = fmt.Fprintf(w, `{"error":"mongodb connect error"}`)
-		return entity.User{}, err
+		return
 	}
 	UserSvc := user.New(repo)
-	user, UErr := UserSvc.Login(request)
+	_, UErr := UserSvc.Login(request)
 	if UErr != nil {
-		_, _ = fmt.Fprintf(w, `{"error":"Lohin error"}`+UErr.Error())
+		_, _ = fmt.Fprintf(w, `{"error":"login error"}`+UErr.Error())
 	}
-	return user.User, nil
+	return
 }

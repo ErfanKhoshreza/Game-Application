@@ -57,12 +57,25 @@ func (d DB) Login(param LoginParams) (entity.User, error) {
 	}
 	return entity.User{}, errors.New("password Did Not Match")
 }
+func (d DB) GetUserByID(userID uint) (entity.User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var user entity.User
+	err := d.Database.Collection("gameUser").FindOne(ctx, bson.M{"_id": userID}).Decode(&user)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return entity.User{}, errors.New("user Not Found")
+		}
+		return entity.User{}, err // If any other error occurs
+	}
+	return user, nil
+}
 
 func (d DB) FindUserByPhoneNumber(phoneNumber string) (entity.User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	var user entity.User
-	err := d.Database.Collection("gameUser").FindOne(ctx, bson.M{"phoneNumber": phoneNumber}).Decode(&user)
+	err := d.Database.Collection("gameUser").FindOne(ctx, bson.M{"phonenumber": phoneNumber}).Decode(&user)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return entity.User{}, errors.New("user Not Found")
