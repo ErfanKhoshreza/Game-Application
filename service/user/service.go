@@ -4,7 +4,13 @@ import (
 	"Game-Application/entity"
 	"Game-Application/pkg/phonenumber"
 	"Game-Application/repository/mongo"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
+	"github.com/golang-jwt/jwt/v5"
+	"os"
+	"time"
 )
 
 type Repository interface {
@@ -29,7 +35,8 @@ type RegisterRespond struct {
 	User entity.User
 }
 type LoginRespond struct {
-	User entity.User
+	User  entity.User
+	Token string
 }
 type ProfileRequest struct {
 	UserID string
@@ -84,7 +91,16 @@ func (s Service) Login(req LoginRequest) (LoginRespond, error) {
 	if err != nil {
 		return LoginRespond{}, errors.New(err.Error())
 	}
-	return LoginRespond{User: user}, nil
+	privateKeyPath := os.Getenv("PRIVATE_KEY_PATH")
+	privateKey, PRErr := loadPrivateKey(privateKeyPath)
+	if PRErr != nil {
+		return LoginRespond{}, errors.New(PRErr.Error())
+	}
+	token, TErr := createToken(user.ID.Hex(), privateKey)
+	if TErr != nil {
+		return LoginRespond{}, TErr
+	}
+	return LoginRespond{User: user, Token: token}, nil
 
 }
 
@@ -96,4 +112,42 @@ func (s Service) GetProfile(req ProfileRequest) (ProfileResponse, error) {
 	}
 	//	Retun IT
 	return ProfileResponse{Name: user.Name}, nil
+}
+
+type Claims struct {
+	UserID string
+	jwt.RegisteredClaims
+}
+
+func createToken(userID string, privateKey *rsa.PrivateKey) (string, error) {
+	t := jwt.New(jwt.SigningMethodRS256) // Use RS256 correctly
+
+	// Assign claims
+	t.Claims = &Claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+		},
+		UserID: userID,
+	}
+
+	// Sign the token with the private key
+	return t.SignedString(privateKey)
+}
+func loadPrivateKey(filename string) (*rsa.PrivateKey, error) {
+	keyBytes, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(keyBytes)
+	if block == nil {
+		return nil, errors.New("failed to parse PEM block")
+	}
+
+	parsedKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return parsedKey, nil
 }

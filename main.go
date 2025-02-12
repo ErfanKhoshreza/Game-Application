@@ -5,11 +5,18 @@ import (
 	"Game-Application/service/user"
 	"encoding/json"
 	"fmt"
+	"github.com/joho/godotenv"
 	"io"
 	"net/http"
 )
 
 func main() {
+
+	// Load .env file
+	GErr := godotenv.Load()
+	if GErr != nil {
+		fmt.Println("Warning: No .env file found, using default paths")
+	}
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/user/register", userRegisterHandler)
@@ -78,11 +85,11 @@ func userLoginHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	UserSvc := user.New(repo)
-	_, UErr := UserSvc.Login(request)
+	User, UErr := UserSvc.Login(request)
 	if UErr != nil {
 		_, _ = fmt.Fprintf(w, `{"error":"login error"}`+UErr.Error())
 	}
-	return
+	_, _ = fmt.Fprintf(w, `"success":true,"data": {%s}`, User.Token)
 }
 func userProfileHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
@@ -92,7 +99,9 @@ func userProfileHandler(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-
+	//token := req.Header.Get("Authorization")
+	//println()
+	// Validate Session ID and get The UserId
 	data, cErr := io.ReadAll(req.Body)
 	if cErr != nil {
 		_, _ = fmt.Fprintf(w, `{"error":"reading body error"}`)
@@ -109,9 +118,10 @@ func userProfileHandler(w http.ResponseWriter, req *http.Request) {
 		_, _ = fmt.Fprintf(w, `{"error":"unmarshal json error"}`)
 	}
 	UserSvc := user.New(repo)
-	_, UErr := UserSvc.GetProfile(pReq)
+	gUser, UErr := UserSvc.GetProfile(pReq)
 	if UErr != nil {
 		_, _ = fmt.Fprintf(w, `{"error":"%s"}`, UErr.Error())
 	}
+	_, _ = fmt.Fprintf(w, `{"success":true, "data": %s }`, gUser.Name)
 
 }
