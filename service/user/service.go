@@ -44,6 +44,10 @@ type ProfileRequest struct {
 type ProfileResponse struct {
 	Name string `json:"name"`
 }
+type Claims struct {
+	UserID string
+	jwt.RegisteredClaims
+}
 
 func New(repo Repository) Service {
 	return Service{repo: repo}
@@ -114,11 +118,19 @@ func (s Service) GetProfile(req ProfileRequest) (ProfileResponse, error) {
 	return ProfileResponse{Name: user.Name}, nil
 }
 
-type Claims struct {
-	UserID string
-	jwt.RegisteredClaims
-}
+func (s Service) GetUserIDByToken(token string) (string, error) {
+	PublicKeyPath := os.Getenv("PUBLIC_KEY_PATH")
+	publicKey, PError := loadPublicKey(PublicKeyPath)
+	if PError != nil {
+		return "", PError
+	}
+	claim, PAError := parseJWTToken(token, publicKey)
+	if PAError != nil {
+		return "", PAError
+	}
+	return claim.UserID, nil
 
+}
 func createToken(userID string, privateKey *rsa.PrivateKey) (string, error) {
 	t := jwt.New(jwt.SigningMethodRS256) // Use RS256 correctly
 
@@ -150,4 +162,44 @@ func loadPrivateKey(filename string) (*rsa.PrivateKey, error) {
 	}
 
 	return parsedKey, nil
+}
+
+func loadPublicKey(filename string) (*rsa.PublicKey, error) {
+	keyBytes, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(keyBytes)
+	if block == nil {
+		return nil, errors.New("failed to parse PEM block")
+	}
+
+	parsedKey, err := x509.ParsePKCS1PublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return parsedKey, nil
+}
+func parseJWTToken(tokenString string, publicKey *rsa.PublicKey) (*Claims, error) {
+	// Parse the token
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		// Ensure the signing method is correct
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		return publicKey, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate the claims
+	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		return claims, nil
+	}
+
+	return nil, errors.New("invalid token")
 }

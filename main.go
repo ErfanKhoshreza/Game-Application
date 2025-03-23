@@ -99,26 +99,21 @@ func userProfileHandler(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-	//token := req.Header.Get("Authorization")
+	token := req.Header.Get("Authorization")
 	//println()
 	// Validate Session ID and get The UserId
-	data, cErr := io.ReadAll(req.Body)
-	if cErr != nil {
-		_, _ = fmt.Fprintf(w, `{"error":"reading body error"}`)
-	}
 	repo, Merr := mongo.New("mongodb://localhost:27017", "game")
 	if Merr != nil {
 		_, _ = fmt.Fprintf(w, `{"error":"mongodb connect error"}`)
 		return
 	}
-	var pReq user.ProfileRequest
-	err := json.Unmarshal(data, &pReq)
-	fmt.Println(pReq)
-	if err != nil {
-		_, _ = fmt.Fprintf(w, `{"error":"unmarshal json error"}`)
-	}
+
 	UserSvc := user.New(repo)
-	gUser, UErr := UserSvc.GetProfile(pReq)
+	UserID, UError := UserSvc.GetUserIDByToken(token)
+	if UError != nil {
+		_, _ = fmt.Fprintf(w, `{"error":"get user id from token error"}`+UError.Error())
+	}
+	gUser, UErr := UserSvc.GetProfile(user.ProfileRequest{UserID: UserID})
 	if UErr != nil {
 		_, _ = fmt.Fprintf(w, `{"error":"%s"}`, UErr.Error())
 	}
