@@ -4,13 +4,8 @@ import (
 	"Game-Application/entity"
 	"Game-Application/pkg/phonenumber"
 	"Game-Application/repository/mongo"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"github.com/golang-jwt/jwt/v5"
-	"os"
-	"time"
 )
 
 type Repository interface {
@@ -19,8 +14,14 @@ type Repository interface {
 	Login(params mongo.LoginParams) (entity.User, error)
 	GetUserByID(userID string) (entity.User, error)
 }
+type AuthGenerator interface {
+	createAccessToken(user entity.User) (string, error)
+	createRefreshToken(user entity.User) (string, error)
+	parseToken(accessToken string) (*Claims, error)
+}
 type Service struct {
 	repo Repository
+	auth AuthGenerator
 }
 type RegisterRequest struct {
 	Name        string
@@ -95,12 +96,7 @@ func (s Service) Login(req LoginRequest) (LoginRespond, error) {
 	if err != nil {
 		return LoginRespond{}, errors.New(err.Error())
 	}
-	privateKeyPath := os.Getenv("PRIVATE_KEY_PATH")
-	privateKey, PRErr := loadPrivateKey(privateKeyPath)
-	if PRErr != nil {
-		return LoginRespond{}, errors.New(PRErr.Error())
-	}
-	token, TErr := createToken(user.ID.Hex(), privateKey)
+	token, TErr := s.auth.createAccessToken(user)
 	if TErr != nil {
 		return LoginRespond{}, TErr
 	}
@@ -119,87 +115,10 @@ func (s Service) GetProfile(req ProfileRequest) (ProfileResponse, error) {
 }
 
 func (s Service) GetUserIDByToken(token string) (string, error) {
-	PublicKeyPath := os.Getenv("PUBLIC_KEY_PATH")
-	publicKey, PError := loadPublicKey(PublicKeyPath)
-	if PError != nil {
-		return "", PError
-	}
-	claim, PAError := parseJWTToken(token, publicKey)
+	claim, PAError := s.auth.parseToken(token)
 	if PAError != nil {
 		return "", PAError
 	}
 	return claim.UserID, nil
 
-}
-func createToken(userID string, privateKey *rsa.PrivateKey) (string, error) {
-	t := jwt.New(jwt.SigningMethodRS256) // Use RS256 correctly
-
-	// Assign claims
-	t.Claims = &Claims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-		},
-		UserID: userID,
-	}
-
-	// Sign the token with the private key
-	return t.SignedString(privateKey)
-}
-func loadPrivateKey(filename string) (*rsa.PrivateKey, error) {
-	keyBytes, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	block, _ := pem.Decode(keyBytes)
-	if block == nil {
-		return nil, errors.New("failed to parse PEM block")
-	}
-
-	parsedKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	return parsedKey, nil
-}
-
-func loadPublicKey(filename string) (*rsa.PublicKey, error) {
-	keyBytes, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	block, _ := pem.Decode(keyBytes)
-	if block == nil {
-		return nil, errors.New("failed to parse PEM block")
-	}
-
-	parsedKey, err := x509.ParsePKCS1PublicKey(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	return parsedKey, nil
-}
-func parseJWTToken(tokenString string, publicKey *rsa.PublicKey) (*Claims, error) {
-	// Parse the token
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		// Ensure the signing method is correct
-		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, errors.New("unexpected signing method")
-		}
-		return publicKey, nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Validate the claims
-	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
-		return claims, nil
-	}
-
-	return nil, errors.New("invalid token")
 }
