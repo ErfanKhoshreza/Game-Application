@@ -15,9 +15,9 @@ type Repository interface {
 	GetUserByID(userID string) (entity.User, error)
 }
 type AuthGenerator interface {
-	createAccessToken(user entity.User) (string, error)
-	createRefreshToken(user entity.User) (string, error)
-	parseToken(accessToken string) (*Claims, error)
+	CreateAccessToken(user entity.User) (string, error)
+	CreateRefreshToken(user entity.User) (string, error)
+	ParseToken(accessToken string) (string, error)
 }
 type Service struct {
 	repo Repository
@@ -50,8 +50,8 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-func New(repo Repository) Service {
-	return Service{repo: repo}
+func New(authGenerator AuthGenerator, repo Repository) Service {
+	return Service{repo: repo, auth: authGenerator}
 }
 func (s Service) Register(req RegisterRequest) (RegisterRespond, error) {
 
@@ -96,7 +96,7 @@ func (s Service) Login(req LoginRequest) (LoginRespond, error) {
 	if err != nil {
 		return LoginRespond{}, errors.New(err.Error())
 	}
-	token, TErr := s.auth.createAccessToken(user)
+	token, TErr := s.auth.CreateAccessToken(user)
 	if TErr != nil {
 		return LoginRespond{}, TErr
 	}
@@ -115,10 +115,10 @@ func (s Service) GetProfile(req ProfileRequest) (ProfileResponse, error) {
 }
 
 func (s Service) GetUserIDByToken(token string) (string, error) {
-	claim, PAError := s.auth.parseToken(token)
+	userId, PAError := s.auth.ParseToken(token)
 	if PAError != nil {
 		return "", PAError
 	}
-	return claim.UserID, nil
+	return userId, nil
 
 }

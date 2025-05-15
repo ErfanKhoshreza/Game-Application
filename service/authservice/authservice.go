@@ -12,11 +12,11 @@ import (
 )
 
 type Service struct {
-	signKey               string
-	AccessExpirationTime  time.Duration
-	RefreshExpirationTime time.Duration
 }
 
+func New() Service {
+	return Service{}
+}
 func (s Service) CreateAccessToken(user entity.User) (string, error) {
 	t := jwt.New(jwt.SigningMethodRS256) // Use RS256 correctly
 
@@ -35,13 +35,28 @@ func (s Service) CreateAccessToken(user entity.User) (string, error) {
 	// Sign the token with the private key
 	return t.SignedString(privateKey)
 }
-func (s Service) CreateRefreshToken(user entity.User) {
+func (s Service) CreateRefreshToken(user entity.User) (string, error) {
+	t := jwt.New(jwt.SigningMethodRS256) // Use RS256 correctly
 
+	// Assign claims
+	t.Claims = &Claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+		},
+		UserID: user.ID.Hex(),
+	}
+	privateKeyPath := os.Getenv("PRIVATE_KEY_PATH")
+	privateKey, PRErr := loadPrivateKey(privateKeyPath)
+	if PRErr != nil {
+		return "", PRErr
+	}
+	// Sign the token with the private key
+	return t.SignedString(privateKey)
 }
 
-func (s Service) ParseToken(tokenString string) (*Claims, error) {
+func (s Service) ParseToken(accessToken string) (string, error) {
 	// Parse the token
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(accessToken, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		PublicKeyPath := os.Getenv("PUBLIC_KEY_PATH")
 		publicKey, PError := loadPublicKey(PublicKeyPath)
 		if PError != nil {
@@ -55,15 +70,15 @@ func (s Service) ParseToken(tokenString string) (*Claims, error) {
 	})
 
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// Validate the claims
 	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
-		return claims, nil
+		return claims.UserID, nil
 	}
 
-	return nil, errors.New("invalid token")
+	return "", errors.New("invalid token")
 }
 func loadPrivateKey(filename string) (*rsa.PrivateKey, error) {
 	keyBytes, err := os.ReadFile(filename)

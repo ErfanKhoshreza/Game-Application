@@ -2,6 +2,7 @@ package main
 
 import (
 	"Game-Application/repository/mongo"
+	"Game-Application/service/authservice"
 	"Game-Application/service/user"
 	"encoding/json"
 	"fmt"
@@ -53,7 +54,8 @@ func userRegisterHandler(w http.ResponseWriter, req *http.Request) {
 		_, _ = fmt.Fprintf(w, `{"error":"mongodb connect error"}`)
 		return
 	}
-	UserSvc := user.New(repo)
+	authService := authservice.New()
+	UserSvc := user.New(authService, repo)
 	_, RErr := UserSvc.Register(request)
 	if RErr != nil {
 		_, _ = fmt.Fprintf(w, `{"error":"register error"}`+RErr.Error())
@@ -84,7 +86,8 @@ func userLoginHandler(w http.ResponseWriter, req *http.Request) {
 		_, _ = fmt.Fprintf(w, `{"error":"mongodb connect error"}`)
 		return
 	}
-	UserSvc := user.New(repo)
+	authService := authservice.New()
+	UserSvc := user.New(authService, repo)
 	User, UErr := UserSvc.Login(request)
 	if UErr != nil {
 		_, _ = fmt.Fprintf(w, `{"error":"login error"}`+UErr.Error())
@@ -107,8 +110,8 @@ func userProfileHandler(w http.ResponseWriter, req *http.Request) {
 		_, _ = fmt.Fprintf(w, `{"error":"mongodb connect error"}`)
 		return
 	}
-
-	UserSvc := user.New(repo)
+	authService := authservice.New()
+	UserSvc := user.New(authService, repo)
 	UserID, UError := UserSvc.GetUserIDByToken(token)
 	if UError != nil {
 		_, _ = fmt.Fprintf(w, `{"error":"get user id from token error"}`+UError.Error())
