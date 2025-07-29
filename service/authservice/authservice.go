@@ -91,8 +91,8 @@ func loadPrivateKey(filename string) (*rsa.PrivateKey, error) {
 		return nil, errors.New("failed to parse PEM block")
 	}
 
-	parsedKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err != nil {
+	parsedKey, Perr := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if Perr != nil {
 		return nil, err
 	}
 
